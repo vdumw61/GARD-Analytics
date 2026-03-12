@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>GARD — Отчёт по станции</title>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        /* ── Базовые стили ─────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f0f2f5;
+            color: #1a1a2e;
+        }
+
+        /* ── Шапка ────────────────────────────────────────────────── */
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+            color: white;
+            padding: 24px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+        }
+        .header-left h1 {
+            margin: 0 0 4px 0;
+            font-size: 26px;
+            letter-spacing: 1px;
+        }
+        .header-left .subtitle {
+            font-size: 13px;
+            opacity: 0.7;
+            letter-spacing: 0.5px;
+        }
+        .header-right {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 9px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-print {
+            background: #e2e8f0;
+            color: #1a1a2e;
+        }
+        .btn-print:hover { background: #cbd5e1; }
+        .btn-back {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .btn-back:hover { background: rgba(255,255,255,0.25); }
+
+        /* ── Основной контент ─────────────────────────────────────── */
+        .container {
+            max-width: 1300px;
+            margin: 30px auto;
+            padding: 0 24px;
+        }
+
+        /* ── Карточки ─────────────────────────────────────────────── */
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 22px 26px;
+            margin-bottom: 22px;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+        }
+        .card-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #64748b;
+            margin: 0 0 16px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        /* ── Сетка метрик ─────────────────────────────────────────── */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+            gap: 14px;
+        }
+        .metric {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 14px 16px;
+        }
+        .metric-label {
+            font-size: 11px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        .metric-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1e293b;
+            line-height: 1.1;
+        }
+        .metric-unit {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+        .metric.highlight {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+        }
+        .metric.highlight .metric-value { color: #1d4ed8; }
+        .metric.warn {
+            background: #fff7ed;
+            border-color: #fed7aa;
+        }
+        .metric.warn .metric-value { color: #c2410c; }
+        .metric.good {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+        .metric.good .metric-value { color: #15803d; }
+
+        /* ── Таблица координат и скоростей ───────────────────────── */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13.5px;
+        }
+        .data-table th {
+            background: #f8fafc;
+            color: #64748b;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 9px 14px;
+            text-align: left;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .data-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            font-family: 'Consolas', 'Courier New', monospace;
+        }
+        .data-table tr:last-child td { border-bottom: none; }
+        .data-table tr:hover td { background: #f8fafc; }
+        .td-label {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-weight: 600;
+            color: #374151;
+        }
+        .td-sigma { color: #94a3b8; font-size: 12px; }
+
+        /* ── Статусные бейджи ─────────────────────────────────────── */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+        .badge-ok  { background: #dcfce7; color: #166534; }
+        .badge-warn { background: #fef3c7; color: #92400e; }
+        .badge-err  { background: #fee2e2; color: #991b1b; }
+
+        /* ── Графики ──────────────────────────────────────────────── */
+        .graphs-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        .plot-wrap { height: 260px; }
+
+        /* ── Футер ────────────────────────────────────────────────── */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        /* ── Печать ───────────────────────────────────────────────── */
+        @media print {
+            body { background: white; }
+            .header { background: #1a1a2e !important; -webkit-print-color-adjust: exact; }
+            .btn-print, .btn-back { display: none; }
+            .card { box-shadow: none; border: 1px solid #e2e8f0; }
+            .container { max-width: 100%; padding: 0 10px; }
+            .plot-wrap { height: 220px; }
+            .graphs-grid { page-break-inside: avoid; }
+        }
+
+        /* ── Лоадер ───────────────────────────────────────────────── */
+        #loader {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 60vh;
+            font-size: 18px;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Шапка -->
+<div class="header">
+    <div class="header-left">
+        <h1>🛰️ GARD Analytics — <span id="hdr-sid">—</span></h1>
+        <div class="subtitle" id="hdr-sub">Загрузка данных…</div>
+    </div>
+    <div class="header-right">
+        <button class="btn btn-back" onclick="window.close()">← Вернуться на карту</button>
+        <button class="btn btn-print" onclick="window.print()">🖨 Печать / PDF</button>
+    </div>
+</div>
+
+<div class="container">
+    <div id="loader">⏳ Загрузка данных станции…</div>
+    <div id="content" style="display:none;">
+
+        <!-- ── Блок статуса ──────────────────────────────────────── -->
+        <div class="card">
+            <div class="card-title">Общий статус</div>
+            <div class="metrics-grid" id="status-metrics"></div>
+        </div>
+
+        <!-- ── Координаты на эпоху ───────────────────────────────── -->
+        <div class="card">
+            <div class="card-title">Координаты на расчётную эпоху</div>
+            <table class="data-table" id="coords-table"></table>
+        </div>
+
+        <!-- ── Скорости ──────────────────────────────────────────── -->
+        <div class="card">
+            <div class="card-title">Скорости смещения</div>
+            <table class="data-table" id="vel-table"></table>
+        </div>
+
+        <!-- ── Качество данных ───────────────────────────────────── -->
+        <div class="card">
+            <div class="card-title">Качество и охват данных</div>
+            <div class="metrics-grid" id="quality-metrics"></div>
+        </div>
+
+        <!-- ── Графики ───────────────────────────────────────────── -->
+        <div class="card">
+            <div class="card-title">Временные ряды — компонента X (ECEF)</div>
+            <div class="plot-wrap" id="plot-x"></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Временные ряды — компонента Y (ECEF)</div>
+            <div class="plot-wrap" id="plot-y"></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Временные ряды — компонента Z (ECEF)</div>
+            <div class="plot-wrap" id="plot-z"></div>
+        </div>
+
+    </div><!-- /#content -->
+</div>
+
+<div class="footer">
+    GARD Analytics Pro &nbsp;·&nbsp; данные NGL/IGS20 &nbsp;·&nbsp;
+    сформировано <span id="gen-time"></span>
+</div>
+
+<script>
+// ── Загрузка данных из sessionStorage ────────────────────────────────────
+document.getElementById('gen-time').textContent = new Date().toLocaleString('ru-RU');
+
+const raw = sessionStorage.getItem('jgrf_station_detail');
+if (!raw) {
+    document.getElementById('loader').innerHTML =
+        '❌ Данные не найдены. Откройте страницу через карту.';
+} else {
+    const payload = JSON.parse(raw);
+    const s    = payload.station;
+    const meta = payload.meta;
+    renderAll(s, meta);
+}
+
+function renderAll(s, meta) {
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+
+    document.getElementById('hdr-sid').textContent = s.id;
+    document.getElementById('hdr-sub').textContent =
+        `Эпоха ${meta.epoch} · ${meta.zone_name} · Обработано ${meta.processed} станций в регионе`;
+
+    renderStatusMetrics(s, meta);
+    renderCoordsTable(s, meta);
+    renderVelTable(s, meta);
+    renderQualityMetrics(s);
+    renderPlot('plot-x', s.graph.t, s.graph.raw_x, s.graph.filt_x, s.graph.trend_x, 'ΔX (м)', '#3b82f6');
+    renderPlot('plot-y', s.graph.t, s.graph.raw_y, s.graph.filt_y, s.graph.trend_y, 'ΔY (м)', '#10b981');
+    renderPlot('plot-z', s.graph.t, s.graph.raw_z, s.graph.filt_z, s.graph.trend_z, 'ΔZ (м)', '#f59e0b');
+}
+
+// ── Статус ────────────────────────────────────────────────────────────────
+function renderStatusMetrics(s, meta) {
+    const epochOk  = s.epoch_reliable;
+    const rmseOk   = s.rmse < meta.rmse_max;
+    const noJumps  = s.jumps === 0;
+    const overall  = epochOk && rmseOk && !s.is_precursor;
+
+    const items = [
+        {
+            label: 'Общий статус',
+            value: overall ? '✅ Надёжна' : '⚠️ Требует проверки',
+            unit: '',
+            cls: overall ? 'good' : 'warn'
+        },
+        {
+            label: 'Эпоха надёжна',
+            value: epochOk ? 'Да' : 'Нет',
+            unit: epochOk ? 'данные у эпохи есть' : `экстраполяция ${s.dt_extrap.toFixed(2)} г.`,
+            cls: epochOk ? 'good' : 'warn'
+        },
+        {
+            label: 'RMSE фильтра',
+            value: s.rmse.toFixed(2),
+            unit: 'мм',
+            cls: rmseOk ? 'good' : 'warn'
+        },
+        {
+            label: 'Скачков',
+            value: s.jumps,
+            unit: noJumps ? 'не обнаружено' : 'косейсм. событий',
+            cls: noJumps ? 'good' : 'warn'
+        },
+ 
+    ];
+
+    document.getElementById('status-metrics').innerHTML =
+        items.map(it => `
+            <div class="metric ${it.cls}">
+                <div class="metric-label">${it.label}</div>
+                <div class="metric-value">${it.value}</div>
+                <div class="metric-unit">${it.unit}</div>
+            </div>
+        `).join('');
+}
+
+// ── Координаты ────────────────────────────────────────────────────────────
+function renderCoordsTable(s, meta) {
+    const rows = [
+        ['Широта (геодез.)',   s.lat.toFixed(6),               '°',       '—',             ''],
+        ['Долгота (геодез.)',  s.lon.toFixed(6),               '°',       '—',             ''],
+        ['X (ECEF)',           s.x.toFixed(4),                 'м',       `±${s.sigma_x.toFixed(2)}`, 'мм'],
+        ['Y (ECEF)',           s.y.toFixed(4),                 'м',       `±${s.sigma_y.toFixed(2)}`, 'мм'],
+        ['Z (ECEF)',           s.z.toFixed(4),                 'м',       `±${s.sigma_z.toFixed(2)}`, 'мм'],
+    ];
+
+    document.getElementById('coords-table').innerHTML = `
+        <thead>
+            <tr>
+                <th>Параметр</th>
+                <th>Значение</th>
+                <th>Ед.</th>
+                <th>СКО</th>
+                <th>Ед.</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${rows.map(r => `
+                <tr>
+                    <td class="td-label">${r[0]}</td>
+                    <td>${r[1]}</td>
+                    <td>${r[2]}</td>
+                    <td class="td-sigma">${r[3]}</td>
+                    <td class="td-sigma">${r[4]}</td>
+                </tr>
+            `).join('')}
+        </tbody>
+    `;
+}
+
+// ── Скорости ──────────────────────────────────────────────────────────────
+function renderVelTable(s, meta) {
+    const hasPlate = s.ve_plate !== undefined;
+    const rows = [
+        ['Ve (Восток, IGS20)',   s.ve.toFixed(2),    'мм/год', `±${s.sigma_ve.toFixed(2)}`, 'мм/год'],
+        ['Vn (Север, IGS20)',    s.vn.toFixed(2),    'мм/год', `±${s.sigma_vn.toFixed(2)}`, 'мм/год'],
+        ['Vu (Вертикаль)',       s.vu.toFixed(2),    'мм/год', `±${s.sigma_vu.toFixed(2)}`, 'мм/год'],
+    ];
+    if (hasPlate) {
+        rows.push(
+            ['Ve plate-fixed',  s.ve_plate.toFixed(2), 'мм/год', '—', ''],
+            ['Vn plate-fixed',  s.vn_plate.toFixed(2), 'мм/год', '—', ''],
+        );
+    }
+
+    // Горизонтальная скорость
+    const vh       = Math.sqrt(s.ve**2 + s.vn**2);
+    const vh_sigma = Math.sqrt(s.sigma_ve**2 + s.sigma_vn**2);
+    const azimuth  = (Math.atan2(s.ve, s.vn) * 180 / Math.PI + 360) % 360;
+    rows.push(
+        ['|Vh| горизонт. скорость', vh.toFixed(2), 'мм/год', `±${vh_sigma.toFixed(2)}`, 'мм/год'],
+        ['Азимут скорости',          azimuth.toFixed(1), '° (от С, по часовой)', '—', ''],
+    );
+
+    document.getElementById('vel-table').innerHTML = `
+        <thead>
+            <tr>
+                <th>Параметр</th>
+                <th>Значение</th>
+                <th>Ед.</th>
+                <th>СКО</th>
+                <th>Ед.</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${rows.map(r => `
+                <tr>
+                    <td class="td-label">${r[0]}</td>
+                    <td>${r[1]}</td>
+                    <td>${r[2]}</td>
+                    <td class="td-sigma">${r[3]}</td>
+                    <td class="td-sigma">${r[4]}</td>
+                </tr>
+            `).join('')}
+        </tbody>
+    `;
+}
+
+// ── Качество данных ───────────────────────────────────────────────────────
+function renderQualityMetrics(s) {
+    const spanYears = (s.t_span_end - s.t_span_start).toFixed(1);
+    const items = [
+        { label: 'Начало ряда',    value: s.t_span_start.toFixed(2),   unit: 'год' },
+        { label: 'Конец ряда',     value: s.t_span_end.toFixed(2),     unit: 'год' },
+        { label: 'Длина ряда',     value: spanYears,                    unit: 'лет' },
+        { label: 'Наблюдений',     value: s.n_obs,                      unit: 'эпох' },
+        { label: 'Макс. пробел',   value: s.dt_gap.toFixed(3),          unit: 'лет' },
+        { label: 'Экстраполяция',  value: Math.abs(s.dt_extrap).toFixed(3), unit: 'лет' },
+        { label: 'Годовая ампл. X', value: s.amp_annual_x.toFixed(1),  unit: 'мм' },
+        { label: 'Балл качества',  value: Math.max(0, 100 - s.rmse*2 - s.jumps*2).toFixed(0), unit: '/ 100' },
+    ];
+
+    document.getElementById('quality-metrics').innerHTML =
+        items.map(it => `
+            <div class="metric">
+                <div class="metric-label">${it.label}</div>
+                <div class="metric-value">${it.value}</div>
+                <div class="metric-unit">${it.unit}</div>
+            </div>
+        `).join('');
+}
+
+// ── Plotly графики ────────────────────────────────────────────────────────
+function renderPlot(divId, t, raw, filt, trend, yTitle, color) {
+    const trace_raw = {
+        x: t, y: raw, mode: 'markers', name: 'Сырые данные',
+        marker: { size: 2.5, color: '#cbd5e1' }
+    };
+    const trace_filt = {
+        x: t, y: filt, mode: 'lines', name: 'EKF модель (Сезонность)',
+        line: { color: color, width: 2 }
+    };
+
+    const trace_trend = {
+        x: t, y: trend, mode: 'lines', name: 'Тектонический тренд',
+        line: { color: '#333333', width: 2, dash: 'dot' }
+    };
+
+    const layout = {
+        margin: { l: 55, r: 15, t: 10, b: 35 },
+        showlegend: true,
+        legend: { x: 0.01, y: 0.99, bgcolor: 'rgba(255,255,255,0.8)',
+                  bordercolor: '#e2e8f0', borderwidth: 1, font: { size: 11 } },
+        yaxis: { title: yTitle, titlefont: { size: 12 }, tickfont: { size: 11 } },
+        xaxis: { tickfont: { size: 11 } },
+        paper_bgcolor: 'white', plot_bgcolor: '#fafafa',
+    };
+
+    Plotly.newPlot(divId, [trace_raw, trace_filt, trace_trend], layout, {
+        displayModeBar: true,
+        modeBarButtonsToRemove: ['select2d','lasso2d','autoScale2d'],
+        displaylogo: false,
+        responsive: true
+    });
+}
+</script>
+</body>
+</html>
