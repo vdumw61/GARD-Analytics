@@ -473,7 +473,20 @@ class GeodeticEngine:
                 else: clean[k] = v
             stations_list.append(clean)
 
+
         elapsed = round(time.time() - t_start, 1)
+
+        # Определяем зону по центру bbox для station_detail (без триангуляции, но поле нужно)
+        lat_c = (bbox[0] + bbox[1]) / 2.0
+        lon_c = (bbox[2] + bbox[3]) / 2.0
+        is_pacific = ((28 < lat_c < 65 and 128 < lon_c < 200) or (48 < lat_c < 72 and -172 < lon_c < -128))
+        is_alpine  = ((25 < lat_c < 48 and 22 < lon_c < 92)   or (-18 < lat_c < 22 and 26 < lon_c < 46))
+        if is_pacific:
+            zone_name, rmse_max = "Тихоокеанское кольцо", 7.0
+        elif is_alpine:
+            zone_name, rmse_max = "Альпийский пояс", 6.0
+        else:
+            zone_name, rmse_max = "Стабильная платформа", 6.0
 
         return {
             'meta': {
@@ -481,6 +494,8 @@ class GeodeticEngine:
                 'euler_pole': (Omega * 180 / np.pi * 1e6).tolist(),
                 'euler_valid': euler_valid,
                 'time_sec': elapsed,
+                'zone_name': zone_name,
+                'rmse_max': rmse_max,
             },
             'stations': stations_list,
             'ref_network_ids': ref_ids,
